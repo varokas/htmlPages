@@ -14,7 +14,7 @@
 
       parse = (header, token) ->
         switch(header)
-          when "Date" then Date.parse(token).setTimezone("ICT")
+          when "Date" then Date.parse(token)
           when "Total Paid (THB)" then parseFloat(token)
           else token
 
@@ -23,6 +23,10 @@
         for key of headerIndexes
           parsedLine[key] = parse(key, line[headerIndexes[key]])
         parsedLine
+
+
+
+      lineOut = (l) -> $.trim(l["First Name"]) + " " + $.trim(l["Last Name"]) + "\t" + l["Email"] + "\t" + l["Date"].toString("dd/MM/yyyy") + "\t" + l["Ticket Type"] + "\t" + l["Total Paid (THB)"]
 
       $ -> 
         $('#input').keyup ->
@@ -46,9 +50,10 @@
           data = ( createLine(headerIndexes, line) for line in data )
 
 
-          todayDate = new Date().clearTime().setTimezone("ICT")
+          todayDate = new Date().clearTime()
           paid = ( l for l in data when (l["Total Paid (THB)"] > 0.0) )
           unpaid = ( l for l in data when (l["Total Paid (THB)"] < 0.0001) )
+          totalPaidAmount = sum( l["Total Paid (THB)"] for l in paid )
           pastDeadline = (l for l in unpaid when ( new Date(l["Date"]).addDays(3).isBefore(todayDate) )  )
           nearDeadline = (l for l in unpaid when ( new Date(l["Date"]).addDays(2).isBefore(todayDate) )  )
           
@@ -58,8 +63,11 @@
           $('#capturedHeaders').html(JSON.stringify(headerIndexes))
           $('#paidCount').html(paid.length)
           $('#unpaidCount').html(unpaid.length)
+          $('#totalPaidAmount').html(totalPaidAmount)
 
-          $('#output').val(JSON.stringify(paid))
+          $('#paid').val( ( lineOut(l) for l in paid ).join("\n") )
+          $('#nearDeadline').val( ( lineOut(l) for l in nearDeadline ).join("\n") )
+          $('#pastDeadline').val( ( lineOut(l) for l in pastDeadline ).join("\n") )
     </script>
   </head>
   <body>
@@ -68,18 +76,23 @@
     <h2>Summary</h2>
     <div>Captured Headers: <span id="capturedHeaders"></span></div>
     <br/>
-    <div>Total: <span id="total"></span></div>
+    <div>Total Count: <span id="total"></span></div>
     <div>Paid: <span id="paidCount"></span></div>
     <div>Unpaid: <span id="unpaidCount"></span></div>
+    <div>Total Paid Amount: <span id="totalPaidAmount"></span></div>
 
     <h2>Details</h2>
     <h3>Paid</h3>
-    Copy and paste this to Agile 66
-    <textarea rows="10" cols="100" id="output"></textarea>
+    Copy and paste this to Agile 66 or gDoc<br/>
+    <textarea rows="10" cols="200" id="paid"></textarea>
 
     <h3>Unpaid</h3>
     <div>Today: <span id="todayDate"></span></div>
     <br/>
-    Already passed their deadline
+    1 day to their deadline<br/>
+    <textarea rows="10" cols="200" id="nearDeadline"></textarea>
+    <br/>
+    Already passed their deadline<br/>
+    <textarea rows="10" cols="200" id="pastDeadline"></textarea>
   </body>
 </html>
