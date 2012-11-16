@@ -1,31 +1,85 @@
 <html>
   <head>
     <script type="text/javascript" src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.8.2.min.js"></script>
+    <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/datejs/1.0/date.min.js"></script>
     <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/coffee-script/1.1.2/coffee-script.min.js"></script>
+    
+
     <script type="text/coffeescript">
+      sum = (arr) -> 
+        total = 0
+        for a in arr
+          total += a
+        total 
+
+      parse = (header, token) ->
+        switch(header)
+          when "Date" then Date.parse(token).setTimezone("ICT")
+          when "Total Paid (THB)" then parseFloat(token)
+          else token
+
+      createLine = (headerIndexes, line) ->
+        parsedLine = {}
+        for key of headerIndexes
+          parsedLine[key] = parse(key, line[headerIndexes[key]])
+        parsedLine
+
       $ -> 
         $('#input').keyup ->
+          selectedHeaders = ["First Name", "Last Name", "Email", "Date", "Ticket Type", "Total Paid (THB)"]
+
           input = $("#input").val() 
           
           lines = ($.trim(line) for line in input.split("\n"))
           lines = (line for line in lines when line != "")
 
-          total = lines.length
+          headers = ($.trim(line) for line in (lines[0].split("\t")) )
+          headerIndexes = {} 
+          for sh in selectedHeaders
+            headerIndexes[sh] = headers.indexOf(sh)
 
-          tokens = (t.split("\t") for t in lines)
-          data = t[0] for t in tokens
+          content = lines.slice(1)
+
+          total = content.length
+
+          data = ( ( $.trim(tk) for tk in t.split("\t") ) for t in content)
+          data = ( createLine(headerIndexes, line) for line in data )
+
+
+          todayDate = new Date().clearTime().setTimezone("ICT")
+          paid = ( l for l in data when (l["Total Paid (THB)"] > 0.0) )
+          unpaid = ( l for l in data when (l["Total Paid (THB)"] < 0.0001) )
+          pastDeadline = (l for l in unpaid when ( new Date(l["Date"]).addDays(3).isBefore(todayDate) )  )
+          nearDeadline = (l for l in unpaid when ( new Date(l["Date"]).addDays(2).isBefore(todayDate) )  )
+          
+          $("#todayDate").html( todayDate.toString() )
 
           $('#total').html(total)
-          $('#output').val(input)
+          $('#capturedHeaders').html(JSON.stringify(headerIndexes))
+          $('#paidCount').html(paid.length)
+          $('#unpaidCount').html(unpaid.length)
+
+          $('#output').val(JSON.stringify(paid))
     </script>
   </head>
   <body>
     <p>Paste the Eventbrite "Sales By Ticket Type" here</p>
     <textarea rows="10" cols="100" id="input"></textarea><br/>
-    <h2>output</h2>
+    <h2>Summary</h2>
+    <div>Captured Headers: <span id="capturedHeaders"></span></div>
+    <br/>
     <div>Total: <span id="total"></span></div>
-    <div>Paid: <span id="paid"></span></div>
-    <div>Unpaid: <span id="unpaid"></span></div>
+    <div>Paid: <span id="paidCount"></span></div>
+    <div>Unpaid: <span id="unpaidCount"></span></div>
+
+    <h2>Details</h2>
+    <h3>Paid</h3>
+    Copy and paste this to Agile 66
     <textarea rows="10" cols="100" id="output"></textarea>
+
+    <h3>Unpaid</h3>
+    <div>Today: <span id="todayDate"></span></div>
+    <br/>
+    Already passed their deadline
   </body>
 </html>
